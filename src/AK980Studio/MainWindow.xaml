@@ -65,6 +65,18 @@
                             <TextBlock Text="Per-key colors" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                         </StackPanel>
                     </RadioButton>
+                    <RadioButton Style="{StaticResource NavItem}" GroupName="nav" Tag="keys" AutomationProperties.Name="Keys" Checked="Nav_Checked">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="{StaticResource Icons}" Text="&#xE8AB;" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" Margin="0,0,12,0"/>
+                            <TextBlock Text="Keys" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Style="{StaticResource NavItem}" GroupName="nav" Tag="macros" AutomationProperties.Name="Macros" Checked="Nav_Checked">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="{StaticResource Icons}" Text="&#xE768;" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" Margin="0,0,12,0"/>
+                            <TextBlock Text="Macros" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                        </StackPanel>
+                    </RadioButton>
                     <RadioButton Style="{StaticResource NavItem}" GroupName="nav" Tag="keyboard" AutomationProperties.Name="Keyboard" Checked="Nav_Checked">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="{StaticResource Icons}" Text="&#xE765;" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" Margin="0,0,12,0"/>

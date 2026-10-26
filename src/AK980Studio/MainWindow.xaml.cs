@@ -76,6 +76,8 @@ public partial class MainWindow : Window
             {
                 "lighting" => new LightingPage(),
                 "perkey" => new PerKeyPage(),
+                "keys" => new KeysPage(),
+                "macros" => new MacrosPage(),
                 "keyboard" => new KeyboardPage(),
                 "settings" => new SettingsPage(),
                 _ => new ScreenPage(),

@@ -32,6 +32,10 @@ public sealed class Ak980Keyboard : IDisposable
     private const byte OpOptions = 0x17;
     private const byte CustomLightMode = 0x80;
     private const int CustomTablePackets = 9; // 576 bytes = [index, R, G, B] x 144, last two bytes AA 55
+    private const byte OpKeyMapTop = 0x11;
+    private const byte OpKeyMapFn = 0x27;
+    private const byte OpMacroBegin = 0x19;
+    private const byte OpMacroData = 0x15;
     private const byte OpLcdConfig = 0x28;
     private const byte OpLcdUpload = 0x72;
 
@@ -227,6 +231,50 @@ public sealed class Ak980Keyboard : IDisposable
             SendNoAck(p);
             Commit();
             Apply();
+        }
+    }
+
+    // ---------------------------------------------------------------- key remap and macros
+
+    /// <summary>
+    /// Writes one layer's key table (stock DeviceDriver.exe 0x4183e0): 04 18, then 04 11 (top layer) or 04 27 (Fn layer)
+    /// with COUNT = 9, nine 64-byte packets of <see cref="KeyMap.EncodeLayer"/>, 04 02 and 04 F0 (both acknowledged).
+    /// Keys missing from <paramref name="actions"/> keep their firmware default.
+    /// </summary>
+    public void SetKeyMap(KeyMapLayer layer, IReadOnlyDictionary<int, KeyAction> actions)
+    {
+        var table = KeyMap.EncodeLayer(actions);
+        lock (_io)
+        {
+            Begin();
+            SendCommand(layer == KeyMapLayer.Fn ? OpKeyMapFn : OpKeyMapTop, count: KeyMap.Packets);
+            for (int i = 0; i < KeyMap.Packets; i++)
+                SendNoAck(table.AsSpan(i * 64, 64));
+            Commit();
+            var apply = new byte[64];
+            apply[0] = CmdPrefix;
+            apply[1] = OpApply;
+            SendPacket(apply);
+        }
+    }
+
+    /// <summary>
+    /// Stores the macro list (stock DeviceDriver.exe 0x42d820): 04 19, then 04 15 with COUNT = pages, 30 ms, the pages,
+    /// 30 ms, 04 02. Slot numbers are the list positions; keys reference them with <see cref="KeyActionKind.Macro"/>.
+    /// An empty list clears every macro.
+    /// </summary>
+    public void SetMacros(IReadOnlyList<Macro> macros)
+    {
+        var data = MacroCodec.Encode(macros, out int pages);
+        lock (_io)
+        {
+            SendCommand(OpMacroBegin);
+            SendCommand(OpMacroData, count: pages);
+            Thread.Sleep(30);
+            for (int i = 0; i < pages; i++)
+                SendNoAck(data.AsSpan(i * 64, 64));
+            Thread.Sleep(30);
+            Commit();
         }
     }
 

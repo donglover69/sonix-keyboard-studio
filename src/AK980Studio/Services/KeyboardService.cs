@@ -200,6 +200,16 @@ public sealed class KeyboardService : IDisposable
 
     public Task<bool> SetOptionsAsync(KeyboardOptions o) => RunAsync(kb => kb.SetOptions(o), "Keyboard settings saved");
 
+    /// <summary>Writes both key layers, like the stock app's full sync.</summary>
+    public Task<bool> SetKeyMapsAsync(IReadOnlyDictionary<int, KeyAction> top, IReadOnlyDictionary<int, KeyAction> fn) =>
+        RunAsync(kb =>
+        {
+            kb.SetKeyMap(KeyMapLayer.Top, top);
+            kb.SetKeyMap(KeyMapLayer.Fn, fn);
+        }, "Key remaps saved");
+
+    public Task<bool> SetMacrosAsync(IReadOnlyList<Macro> macros) => RunAsync(kb => kb.SetMacros(macros), "Macros saved");
+
     public Task<bool> UploadAsync(LcdAnimation anim, IProgress<double> progress) =>
         RunAsync(kb => kb.UploadLcd(anim, _settings.LcdSlot, progress), "Upload complete");
 

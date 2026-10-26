@@ -16,9 +16,43 @@ static int Usage()
           ak980 light <mode 0-19> [--color RRGGBB] [--bright 0-5] [--speed 0-5] [--dir N] [--rainbow]
           ak980 side <off|flowing|red|yellow|green|iceblue|blue|pink|white|neon>
           ak980 battery                                read the battery level through the 2.4G dongle
+          ak980 keys                                   list key indices and names used by remap
+          ak980 remap [--fn] [--dry] <Key>=<action> ... write a whole layer: listed keys get the action, all others their default
+          ak980 remap [--fn] [--dry] --reset           write a layer with every key at its default
+                actions: default | off | key:[ctrl+][shift+][alt+][win+]Name | mouse:left|right|middle|double|btn4|btn5|wheelup|wheeldown
+                         media:play|stop|prev|next|volup|voldown|mute|calc|mail|player|computer|home|refresh|back|forward|favorites|search
+                         macro:N[:once|repeat:COUNT|toggle|hold|click] | multi:A,B,C
+          ak980 macros [--dry] <macro> ...             store macros in slots 0, 1, ... (replaces all macros on the keyboard)
+          ak980 macros [--dry] --clear                 remove every macro
+                macros:  text:hello | combo:ctrl+shift+esc | steps:down:A,wait:50,up:A,tap:B,click:left
           ak980 raw <hex bytes>                        send one 64-byte command packet, print the reply
         """);
     return 1;
+}
+
+static void Dump(string title, byte[] data)
+{
+    Console.WriteLine(title);
+    for (int i = 0; i < data.Length; i += 32)
+        Console.WriteLine($"  {i,4}: {Convert.ToHexString(data.AsSpan(i, Math.Min(32, data.Length - i)))}");
+}
+
+Dictionary<int, KeyAction> ParseRemaps(IEnumerable<string> specs)
+{
+    var layout = Ajazz.Keyboard.Layout.KeyboardLayout.Load();
+    var map = new Dictionary<int, KeyAction>();
+    foreach (var spec in specs)
+    {
+        int eq = spec.IndexOf('=');
+        if (eq <= 0) throw new FormatException($"Expected Key=action, got '{spec}'");
+        string keyName = spec[..eq];
+        var key = layout.ByName(keyName)
+                  ?? (int.TryParse(keyName, out var idx) ? layout.ByIndex(idx) : null)
+                  ?? throw new FormatException($"Unknown key '{keyName}' (see 'ak980 keys')");
+        map[key.Index] = KeyAction.Parse(spec[(eq + 1)..]);
+        Console.WriteLine($"  {key.Name,-10} (index {key.Index,3}) -> {map[key.Index].Describe()}  [{Convert.ToHexString(map[key.Index].ToEntry())}]");
+    }
+    return map;
 }
 
 string? Opt(string name) =>
@@ -31,6 +65,7 @@ byte Slot() => byte.TryParse(Opt("--slot"), out var s) ? s : (byte)1;
 Ak980Keyboard OpenKeyboard() =>
     Ak980Keyboard.Open() ?? throw new InvalidOperationException("AK980 not found on USB (VID 0C45 / PID 8009)");
 
+Console.OutputEncoding = System.Text.Encoding.UTF8;
 if (args.Length == 0) return Usage();
 
 try
@@ -138,6 +173,48 @@ try
             var level = dongle.ReadBattery();
             Console.WriteLine(level is int pct ? $"Battery: {pct}%" : "No answer (the keyboard must be in 2.4G mode)");
             return level is null ? 3 : 0;
+        }
+
+        case "keys":
+            foreach (var k in Ajazz.Keyboard.Layout.KeyboardLayout.Load().Keys.OrderBy(k => k.Index))
+                Console.WriteLine($"{k.Index,4}  {k.Name,-10} code 0x{k.Code:X2}");
+            return 0;
+
+        case "remap":
+        {
+            var layer = args.Contains("--fn") ? KeyMapLayer.Fn : KeyMapLayer.Top;
+            var map = args.Contains("--reset")
+                ? new Dictionary<int, KeyAction>()
+                : ParseRemaps(args.Skip(1).Where(a => !a.StartsWith("--")));
+            if (args.Contains("--dry"))
+            {
+                Dump($"{layer} layer table (04 {(layer == KeyMapLayer.Fn ? "27" : "11")}, 9 packets):", KeyMap.EncodeLayer(map));
+                return 0;
+            }
+            using var kb = OpenKeyboard();
+            kb.SetKeyMap(layer, map);
+            Console.WriteLine($"{layer} layer written ({map.Count} remapped key(s), all others default).");
+            return 0;
+        }
+
+        case "macros":
+        {
+            var macros = args.Contains("--clear")
+                ? new List<Macro>()
+                : args.Skip(1).Where(a => !a.StartsWith("--")).Select((m, i) => Macro.Parse(m, $"Macro {i}")).ToList();
+            for (int i = 0; i < macros.Count; i++)
+                Console.WriteLine($"  slot {i}: {macros[i].Steps.Count} step(s): {string.Join(" ", macros[i].Steps.Select(s => s.Describe()))}");
+            Console.WriteLine($"  memory: {MacroCodec.Used(macros)} / {MacroCodec.BudgetBytes} bytes");
+            if (args.Contains("--dry"))
+            {
+                var data = MacroCodec.Encode(macros, out int pages);
+                Dump($"Macro image (04 19, 04 15 [8]={pages}, {pages} packets):", data);
+                return 0;
+            }
+            using var kb = OpenKeyboard();
+            kb.SetMacros(macros);
+            Console.WriteLine($"{macros.Count} macro(s) stored.");
+            return 0;
         }
 
         case "raw" when args.Length >= 2:

@@ -48,6 +48,16 @@ public sealed class AppSettings
     // Firmware options (Keyboard page)
     public KeyboardOptions KeyboardOptions { get; set; } = new();
 
+    // Key remaps (key index -> action; missing keys are default) and macros (list position = slot on the keyboard)
+    public Dictionary<int, KeyAction> KeyMapTop { get; set; } = new();
+    public Dictionary<int, KeyAction> KeyMapFn { get; set; } = new();
+    public List<Macro> Macros { get; set; } = new();
+    /// <summary>Remaps and macros were taken over from the stock app's database (done once, also for existing settings files).</summary>
+    public bool StockKeysImported { get; set; }
+    /// <summary>What the last successful Apply sent, so the pages can show unsent changes.</summary>
+    public string? KeysAppliedHash { get; set; }
+    public string? MacrosAppliedHash { get; set; }
+
     // Battery (read through the 2.4G dongle; the keyboard only answers in 2.4G mode)
     public int BatteryPollSeconds { get; set; } = 15;
     public bool BatteryWarn { get; set; } = true;
@@ -64,19 +74,62 @@ public sealed class AppSettings
 
     public static AppSettings Load()
     {
+        AppSettings? loaded = null;
         try
         {
             if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath), Json) ?? new();
+                loaded = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath), Json);
         }
         catch (Exception)
         {
             // A corrupt settings file should never stop the app from opening.
         }
+        var s = loaded ?? new AppSettings();
         // First run: start from whatever the stock app last put on the keyboard.
-        var fresh = new AppSettings();
-        if (StockImporter.ReadActiveLighting() is { } light) fresh.Light = light;
-        return fresh;
+        if (loaded is null && StockImporter.ReadActiveLighting() is { } light) s.Light = light;
+        if (!s.StockKeysImported)
+        {
+            s.StockKeysImported = true;
+            s.ImportStockKeys(alreadyOnKeyboard: true);
+            s.Save();
+        }
+        // Nothing configured and nothing ever sent: the keyboard is at its defaults, so there is nothing to apply.
+        if (s.KeysAppliedHash is null && s.KeyMapTop.Count == 0 && s.KeyMapFn.Count == 0) s.KeysAppliedHash = s.KeysHash();
+        if (s.MacrosAppliedHash is null && s.Macros.Count == 0) s.MacrosAppliedHash = s.MacrosHash();
+        return s;
+    }
+
+    /// <summary>Replaces remaps and macros with the stock app's active profile. Returns a summary, or null if there is no stock data.</summary>
+    public string? ImportStockKeys(bool alreadyOnKeyboard = false)
+    {
+        if (StockImporter.ReadKeys() is not { } stock) return null;
+        KeyMapTop = stock.Top;
+        KeyMapFn = stock.Fn;
+        Macros = stock.Macros;
+        // On first run the keyboard already holds exactly this (the stock app sends it on every change).
+        if (alreadyOnKeyboard)
+        {
+            KeysAppliedHash = KeysHash();
+            MacrosAppliedHash = MacrosHash();
+        }
+        string summary = $"{stock.Top.Count} remap(s), {stock.Fn.Count} Fn-layer remap(s), {stock.Macros.Count} macro(s)";
+        return stock.Skipped.Count == 0 ? summary : $"{summary}; skipped (needs the stock app running): {string.Join(", ", stock.Skipped)}";
+    }
+
+    public string KeysHash() =>
+        Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(
+            KeyMap.EncodeLayer(KeyMapTop).Concat(KeyMap.EncodeLayer(KeyMapFn)).ToArray()));
+
+    public string MacrosHash()
+    {
+        try
+        {
+            return Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(MacroCodec.Encode(Macros, out _)));
+        }
+        catch (InvalidOperationException)
+        {
+            return "too-big";
+        }
     }
 
     public void Save()

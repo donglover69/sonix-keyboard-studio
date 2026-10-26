@@ -9,4 +9,8 @@
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Layout/*-layout.json" />
+  </ItemGroup>
+
 </Project>

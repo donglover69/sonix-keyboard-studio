@@ -1,19 +1,15 @@
-using System.IO;
-using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using AK980Studio.Controls;
 using AK980Studio.Services;
+using Ajazz.Keyboard.Layout;
 
 namespace AK980Studio.Pages;
 
 public partial class PerKeyPage : UserControl
 {
-    private sealed record KeyDef(string Name, int Led, int X, int Y, int W, int H);
-    private sealed record Layout(int Width, int Height, List<KeyDef> Keys);
-
     private static readonly Dictionary<string, string> ShortNames = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Backspace"] = "Bksp", ["page up"] = "PgUp", ["page down"] = "PgDn", ["home"] = "Home", ["del"] = "Del",
@@ -21,7 +17,7 @@ public partial class PerKeyPage : UserControl
         ["Alt_R"] = "Alt", ["Win_L"] = "Win", ["Caps Lock"] = "Caps", ["Num Lock"] = "Num", ["Enter_R"] = "Ent",
     };
 
-    private readonly List<(KeyDef Def, Border View, TextBlock Label)> _keys = new();
+    private readonly List<(LayoutKey Def, Border View, TextBlock Label)> _keys = new();
     private readonly Dictionary<int, Color> _colors = new();
     private bool _painting;
 
@@ -36,28 +32,22 @@ public partial class PerKeyPage : UserControl
         BuildKeys();
     }
 
-    private static Layout LoadLayout()
-    {
-        using var s = typeof(PerKeyPage).Assembly.GetManifestResourceStream("AK980Studio.Assets.ak980-layout.json")
-            ?? throw new FileNotFoundException("Embedded keyboard layout missing");
-        return JsonSerializer.Deserialize<Layout>(s, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
-    }
-
     private void BuildKeys()
     {
-        var layout = LoadLayout();
+        var layout = KeyboardLayout.Load();
         foreach (var k in layout.Keys)
         {
             var label = new TextBlock
             {
                 Text = ShortNames.TryGetValue(k.Name, out var s) ? s : k.Name,
                 FontSize = 9.5, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis,
             };
             var view = new Border
             {
                 Width = k.W - 2, Height = k.H - 2, CornerRadius = new CornerRadius(5), BorderThickness = new Thickness(1),
-                Child = label, ToolTip = $"{k.Name}  (LED {k.Led})", Cursor = Cursors.Pen,
+                // Shrinks long labels (Pause, Home, PgUp...) to fit narrow keys instead of cutting them off.
+                Child = new Viewbox { Child = label, StretchDirection = StretchDirection.DownOnly, Margin = new Thickness(2, 1, 2, 1) },
+                ToolTip = $"{k.Name}  (LED {k.Led})", Cursor = Cursors.Pen,
             };
             view.SetResourceReference(Border.BorderBrushProperty, "Line");
             Canvas.SetLeft(view, k.X + 1);
@@ -80,7 +70,7 @@ public partial class PerKeyPage : UserControl
         }
     }
 
-    private KeyDef? HitTest(Point p) =>
+    private LayoutKey? HitTest(Point p) =>
         _keys.Select(k => k.Def).FirstOrDefault(k => p.X >= k.X && p.X < k.X + k.W && p.Y >= k.Y && p.Y < k.Y + k.H);
 
     private void PaintAt(Point p)
@@ -118,7 +108,7 @@ public partial class PerKeyPage : UserControl
         Persist();
     }
 
-    private void Fill(Func<KeyDef, Color> f)
+    private void Fill(Func<LayoutKey, Color> f)
     {
         foreach (var (def, _, _) in _keys) _colors[def.Led] = f(def);
         Redraw();
@@ -147,8 +137,9 @@ public partial class PerKeyPage : UserControl
 
     private void Gaming_Click(object sender, RoutedEventArgs e)
     {
-        var hot = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "W", "A", "S", "D", "↑", "↓", "←", "→", "Space", "Shift_L", "Ctrl_L", "Esc" };
-        Fill(k => hot.Contains(k.Name) ? Brush.Color : SecondColor.Color);
+        // By HID code (layout names differ between keyboards): W A S D, arrows, Space, left Shift, left Ctrl, Esc.
+        var hot = new HashSet<int> { 0x1A, 0x04, 0x16, 0x07, 0x52, 0x51, 0x50, 0x4F, 0x2C, 0xE1, 0xE0, 0x29 };
+        Fill(k => hot.Contains(k.Code) ? Brush.Color : SecondColor.Color);
     }
 
     private void Persist()

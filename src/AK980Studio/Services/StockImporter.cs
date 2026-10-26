@@ -8,15 +8,19 @@ namespace AK980Studio.Services;
 /// %LOCALAPPDATA%\&lt;driver name&gt; Files\db\*_datav1.db (t_ledlayer_data / t_ledframe_data) + led\&lt;device&gt;\&lt;dir&gt;\N.png.
 /// Uses Windows' built-in winsqlite3.dll, so no extra dependencies.
 /// </summary>
-public static class StockImporter
+public static partial class StockImporter
 {
+    /// <summary>%LOCALAPPDATA% folders the stock driver keeps its database in.</summary>
+    private const string StockFolderPattern = "AJAZZ*Files";
+    private const string TempPrefix = "ak980studio_";
+
     public sealed record StockAnimation(string Name, string FrameDir, List<(string File, int DelayMs)> Frames);
 
     public static List<StockAnimation> Find()
     {
         var result = new List<StockAnimation>();
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        foreach (var root in Directory.EnumerateDirectories(local, "AJAZZ*Files"))
+        foreach (var root in Directory.EnumerateDirectories(local, StockFolderPattern))
         {
             var dbDir = Path.Combine(root, "db");
             if (!Directory.Exists(dbDir)) continue;
@@ -40,13 +44,13 @@ public static class StockImporter
     public static Ajazz.Keyboard.LightSettings? ReadActiveLighting()
     {
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        foreach (var root in Directory.EnumerateDirectories(local, "AJAZZ*Files"))
+        foreach (var root in Directory.EnumerateDirectories(local, StockFolderPattern))
         {
             var dbDir = Path.Combine(root, "db");
             if (!Directory.Exists(dbDir)) continue;
             foreach (var db in Directory.EnumerateFiles(dbDir, "*_datav1.db"))
             {
-                var copy = Path.Combine(Path.GetTempPath(), $"ak980studio_{Guid.NewGuid():N}.db");
+                var copy = Path.Combine(Path.GetTempPath(), $"{TempPrefix}{Guid.NewGuid():N}.db");
                 try
                 {
                     File.Copy(db, copy);
@@ -80,7 +84,7 @@ public static class StockImporter
     private static IEnumerable<StockAnimation> ReadDb(string dbPath, string ledRoot)
     {
         // Work on a copy so we never hold a lock on the stock app's database.
-        var copy = Path.Combine(Path.GetTempPath(), $"ak980studio_{Guid.NewGuid():N}.db");
+        var copy = Path.Combine(Path.GetTempPath(), $"{TempPrefix}{Guid.NewGuid():N}.db");
         File.Copy(dbPath, copy);
         try
         {

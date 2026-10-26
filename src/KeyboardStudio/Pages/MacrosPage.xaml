@@ -1,0 +1,100 @@
+<UserControl x:Class="KeyboardStudio.Pages.MacrosPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:KeyboardStudio.Controls"
+             Focusable="True" PreviewKeyDown="Page_PreviewKeyDown" PreviewKeyUp="Page_PreviewKeyUp">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+            <TextBlock Text="Macros" Style="{StaticResource H1}"/>
+            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                       Text="Recorded key and mouse sequences, stored in the keyboard. Give one to a key on the Keys page. Nothing is sent until you press Upload."/>
+
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="270"/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="290"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource Card}" VerticalAlignment="Top">
+                    <StackPanel>
+                        <TextBlock Text="Your macros" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                        <ListBox x:Name="MacroList" MinHeight="220" MaxHeight="460" SelectionChanged="Macro_Selected"/>
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Content="New" Margin="0,0,6,6" Click="New_Click"/>
+                            <Button Content="Rename" Margin="0,0,6,6" Click="Rename_Click"/>
+                            <Button Content="Copy" Margin="0,0,6,6" Click="Duplicate_Click"/>
+                            <Button Content="Delete" Margin="0,0,6,6" Click="Delete_Click"/>
+                            <Button Content="▲" Margin="0,0,6,6" Click="MacroUp_Click" ToolTip="Move up (changes its slot number)"/>
+                            <Button Content="▼" Margin="0,0,6,6" Click="MacroDown_Click" ToolTip="Move down (changes its slot number)"/>
+                        </WrapPanel>
+                        <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="The number is the macro's slot on the keyboard. Keys follow their macro when you reorder."/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource Card}" Margin="16,0,0,0" VerticalAlignment="Top">
+                    <StackPanel x:Name="EditorPanel" IsEnabled="False">
+                        <DockPanel>
+                            <TextBlock x:Name="StepCount" DockPanel.Dock="Right" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="MacroTitle" Text="Pick or create a macro" FontWeight="SemiBold" FontSize="15"/>
+                        </DockPanel>
+
+                        <Border x:Name="RecordBox" Margin="0,12,0,0" Padding="12,10" CornerRadius="8" BorderThickness="1"
+                                Background="{DynamicResource Bg2}" BorderBrush="{DynamicResource Line}">
+                            <DockPanel>
+                                <Button x:Name="RecordButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="● Record" Padding="14,7" Click="Record_Click"/>
+                                <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                    <TextBlock x:Name="RecordText" Text="Record: press Record, then type on any keyboard. Steps are added at the selected row." TextWrapping="Wrap"/>
+                                    <CheckBox x:Name="RecordDelays" Content="Keep my timing" IsChecked="True" Margin="0,6,0,0"
+                                              ToolTip="Off: every step gets the default delay instead of the pause you actually made"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <ListBox x:Name="StepList" MinHeight="240" MaxHeight="420" Margin="0,12,0,0" SelectionMode="Extended"
+                                 SelectionChanged="Step_Selected" FontFamily="Consolas"/>
+
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Content="Type text…" Margin="0,0,6,6" Click="AddText_Click" ToolTip="Adds the key presses that type this text (US layout)"/>
+                            <Button Content="Add key…" Margin="0,0,6,6" Click="AddKey_Click" ToolTip="Adds a press and release of one key"/>
+                            <Button Content="Left click" Margin="0,0,6,6" Click="AddClick_Click" Tag="1"/>
+                            <Button Content="Right click" Margin="0,0,6,6" Click="AddClick_Click" Tag="2"/>
+                            <Button Content="Middle click" Margin="0,0,6,6" Click="AddClick_Click" Tag="4"/>
+                            <Button Content="Delete step" Margin="0,0,6,6" Click="DeleteStep_Click"/>
+                            <Button Content="▲" Margin="0,0,6,6" Click="StepUp_Click"/>
+                            <Button Content="▼" Margin="0,0,6,6" Click="StepDown_Click"/>
+                            <Button Content="Clear" Margin="0,0,6,6" Click="ClearSteps_Click"/>
+                        </WrapPanel>
+
+                        <c:LabeledSlider x:Name="DelaySlider" Label="Pause after" Minimum="10" Maximum="2000" Integer="True" Format="{}{0:0} ms" Margin="0,8,0,0"/>
+                        <DockPanel Margin="0,4,0,0">
+                            <Button DockPanel.Dock="Right" Content="Use for all steps" Click="DelayAll_Click"/>
+                            <TextBlock Style="{StaticResource Hint}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                       Text="Applies to the selected steps. The keyboard waits at least 10 ms after every step."/>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Grid.Column="2" Margin="16,0,0,0">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="Keyboard memory" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <ProgressBar x:Name="MemoryBar" Height="6" Maximum="2700"/>
+                            <TextBlock x:Name="MemoryText" Style="{StaticResource Hint}" Margin="0,6,0,0"/>
+                            <c:LabeledSlider x:Name="DefaultDelay" Label="Default delay" Minimum="10" Maximum="500" Integer="True" Format="{}{0:0} ms" Margin="0,12,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                        <StackPanel>
+                            <Button Style="{StaticResource Primary}" Content="Upload macros to keyboard" Padding="14,9" Click="Upload_Click"/>
+                            <TextBlock x:Name="Status" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                       Text="Upload replaces every macro on the keyboard with this list. Assign macros to keys on the Keys page and press Apply there."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

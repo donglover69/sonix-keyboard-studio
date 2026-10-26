@@ -1,0 +1,62 @@
+<UserControl x:Class="KeyboardStudio.Pages.PerKeyPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:KeyboardStudio.Controls">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+            <TextBlock Text="Per-key colors" Style="{StaticResource H1}"/>
+            <TextBlock Style="{StaticResource Hint}" Text="Paint keys by clicking or dragging. Applying switches the keyboard to its static per-key mode; pick an effect on the Lighting page to go back."/>
+
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="280"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <Border Style="{StaticResource Card}">
+                        <Viewbox Stretch="Uniform" MaxHeight="360">
+                            <Canvas x:Name="KeyCanvas" Width="800" Height="300" Background="Transparent"
+                                    MouseLeftButtonDown="Canvas_MouseDown" MouseMove="Canvas_MouseMove" MouseLeftButtonUp="Canvas_MouseUp"/>
+                        </Viewbox>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Quick fills" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                            <WrapPanel>
+                                <Button Content="Fill all" Margin="0,0,8,8" Click="FillAll_Click"/>
+                                <Button Content="All off" Margin="0,0,8,8" Click="Clear_Click"/>
+                                <Button Content="Rainbow ←→" Margin="0,0,8,8" Click="RainbowX_Click"/>
+                                <Button Content="Rainbow ↑↓" Margin="0,0,8,8" Click="RainbowY_Click"/>
+                                <Button Content="Gradient to 2nd color" Margin="0,0,8,8" Click="Gradient_Click"/>
+                                <Button Content="Highlight WASD + arrows" Margin="0,0,8,8" Click="Gaming_Click"/>
+                            </WrapPanel>
+                            <DockPanel Margin="0,6,0,0">
+                                <TextBlock Text="2nd color" VerticalAlignment="Center" Foreground="{DynamicResource Fg1}" Margin="0,0,12,0"/>
+                                <c:ColorButton x:Name="SecondColor" HorizontalAlignment="Left"/>
+                            </DockPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Margin="16,0,0,0">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="Brush" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                            <c:ColorPicker x:Name="Brush"/>
+                            <CheckBox x:Name="Eyedropper" Content="Eyedropper" ToolTip="Click a key to pick up its color" Margin="0,10,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                        <StackPanel>
+                            <c:LabeledSlider x:Name="BrightnessSlider" Label="Brightness" Minimum="0" Maximum="5" Integer="True" Format="{}{0:0} / 5"/>
+                            <Button Style="{StaticResource Primary}" Content="Apply to keyboard" Margin="0,10,0,0" Padding="14,9" Click="Apply_Click"/>
+                            <TextBlock x:Name="Status" Style="{StaticResource Hint}" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

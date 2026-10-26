@@ -1,26 +1,35 @@
 # Agent notes
 
-AK980 Studio is a replacement for the AJAZZ AK980 V2 driver, built from its reverse-engineered USB protocol. README.md has the features and the full protocol table. The AULA F108 Pro uses an older build of the same driver; F108 Studio (`../AULA`) shares the protocol and the key remap and macro code, so fix bugs in both.
+Keyboard Studio replaces the stock driver software of SONiX-based keyboards (AJAZZ AK980 V2, AULA F108 Pro), built from the reverse-engineered USB protocol. README.md has the features, the supported keyboards and the full protocol. Per-keyboard differences live in `src/Sonix.Keyboard/KeyboardModel.cs`; everything else is shared.
 
 ## Build
 
 - `dotnet build` (.NET 8 SDK, Windows only: WPF + WinForms tray + GDI+)
-- Publish: `dotnet publish src/AK980Studio -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish/AK980Studio` (close the running app first; it autostarts from that folder and locks the exe)
-- CLI for hardware testing: `src/ak980` (`ak980 list`, `lcd`, `light`, `custom`, `options`, `keys`, `remap`, `macros`, `raw`). `remap --dry` and `macros --dry` print the exact bytes without touching the keyboard.
+- Publish: `dotnet publish src/KeyboardStudio -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish/KeyboardStudio` and the same for `src/kbstudio` into `publish/cli`. Close a running copy first; it locks its exe.
+- CLI for hardware testing: `src/kbstudio` (`models`, `list`, `read`, `lcd`, `light`, `custom`, `options`, `keys`, `remap`, `macros`, `raw`). Pass `--model ak980|f108pro` when both keyboards are plugged in. `remap --dry` and `macros --dry` print the exact bytes without touching a keyboard.
+
+## Adding a keyboard
+
+1. Get its stock installer; unpack it without installing (innoextract for Inno Setup) into `re/bin/<model>/`.
+2. Compare its `DeviceDriver.exe` with a known build: `re/opscan.py` (opcode stores per function), `re/fdiff.py` (normalized diff; it can run past a function's end), `re/sigfind.py` (find functions across builds). Only proceed if the command functions match.
+3. `re/layout2json.py <layouts/rgb-keyboard.xml> src/Sonix.Keyboard/Layout/<model>-layout.json`, then add a `KeyboardModel` (IDs from `config.xml`, `gif_maxframes` from the XML, effect names from `language/1033.lan` 521..540, firmware combos from the manual).
 
 ## Reverse engineering
 
-- Source binaries come from the stock installer (`AJAZZ AK980 V2.exe`, installs to `C:\Program Files (x86)\AJAZZ AK980\`). Copy `DeviceDriver.exe`, `mui.dll` and `layouts\rgb-keyboard.xml` into `re/bin/`. That folder and `re/out/` are git-ignored: never commit vendor binaries or decompiler output.
-- [rea](https://github.com/morluto/rea) with Ghidra 12.1.x + JDK 21: `re/rea.ps1` (set `REA_TOOLS`, default `%USERPROFILE%\tools`). Each rea CLI query re-imports the binary (~3 min). For bulk work, run `re/ghidra/DumpAll.java` through `analyzeHeadless`.
-- Quick helpers (pefile + capstone): `re/opscan.py` (every `04 XX` opcode store grouped by function), `re/fdiff.py` (normalized disassembly diff between two builds), `re/sigfind.py` (find a function of one build in the other by masked byte signature), `re/disasm.py`, `re/xref.py`, `re/callers.py`, `re/opcodes.py`, `re/fieldwrites.py`, `re/strings.py`, `re/layout2json.py` (vendor XML → `src/Ajazz.Keyboard/Layout/ak980-layout.json`, with HID codes).
-- Remaps and macros: key remap sender 0x4183e0 (04 11 / 04 27), key entry encoder 0x418030, launcher-key table 0x4192d0, macro sender 0x42d820 (04 19 / 04 15), VK→HID table 0x451a20, key dialog combos 0x4101c9 (play modes) and 0x411260 (mouse). The stock database keeps remaps in `t_key_macro_data` and macros in `t_macro_data` + `t_macrorecord`; `Services/StockImporter.Keys.cs` converts them exactly like the stock encoder.
+- `re/bin/` and `re/out/` are git-ignored: never commit installers, vendor binaries or decompiler output.
+- Full decompile: `pwsh -File re/ghidra/dump.ps1 -Binary re\bin\<model>\DeviceDriver.exe -Out re\out\<model>.c` (Ghidra headless + `re/ghidra/DumpAll.java`, a few minutes), then grep `// ==== 00xxxxxx` headers. rea (`re/rea.ps1`) works too but re-imports the binary on every query (~3 min).
+- Function map (AK980 build → F108 Pro build): options 0x414060→0x414230, LCD upload 0x422960→0x422b50, clock 0x423920→0x423b10, F5 read 0x42af70→0x42ae20, lighting 0x42b190→0x42b040, side light 0x434300→0x433fd0, per-key mode 0x44bda0→0x44b800, per-key table 0x44beb0→0x44b910, send transport 0x44f370→0x44edc0, read transport 0x44f840→0x44f290, key remap sender 0x4183e0→0x4185e0, key entry encoder 0x418030→0x418230, launcher-key table 0x4192d0→0x4194e0, macro sender 0x42d820→0x42d630, VK→HID table 0x451a20→0x451460, key dialog combos 0x4101c9→0x410369 (play modes) and 0x411260→0x411400 (mouse).
+- The stock databases (`%LOCALAPPDATA%\<driver> Files\db\*_datav1.db`) keep remaps in `t_key_macro_data`, macros in `t_macro_data` + `t_macrorecord`, lighting in `t_light_data`; `Services/StockImporter*.cs` reads them read-only from a temp copy.
 
 ## Hardware testing rules
 
-- Never send unknown opcodes to the keyboard. Some may trigger firmware reset or bootloader mode.
-- Prefer no-op tests (re-send the current state) before visible changes, and restore the user's lighting, remaps and macros afterwards. The user's AK980 has a Delete ↔ PgDn swap and an Fn-layer entry on Fn (`02 00 AF`) stored by the stock app; a remap test must send those back.
-- The logo LED (`Fn+Z`) and the charging indicator are firmware-only; no software command exists.
+- Never send unknown or guessed commands. Only packets that come from the vendor code; some opcodes may trigger a firmware reset or bootloader mode.
+- Writes that replace stored configuration (key layers, macros) need the user's explicit go-ahead with a test and restore plan.
+- Start with no-op tests (`kbstudio read`, or re-sending the current state), ask the user what they see, and restore their lighting, remaps and macros afterwards. A layer write replaces the whole layer, so include existing remaps. The user's AK980 has a Delete ↔ PgDn swap and an Fn-layer entry on Fn (`02 00 AF`) from the stock app.
+- The app never sends anything on startup unless the user enabled it.
+- F108 Pro factory reset: `Fn+Esc` held 3 s.
 
 ## UI checks
 
-`scripts/shot.ps1 <out.png>` screenshots the running app; `scripts/nav.ps1 "<page name>"` switches pages via UI Automation (Screen, Lighting, Per-key colors, Keys, Macros, Keyboard, App settings); `scripts/invoke.ps1 <AutomationId or name>` presses a button, for example `key-119` selects Delete on the Keys page. Don't synthesize mouse clicks: the window may be behind other windows.
+- Try the app on a copy of the data: set `KEYBOARDSTUDIO_HOME` to a folder that holds copies of `KeyboardStudio`, `AK980Studio` or `F108Studio` (from `%LOCALAPPDATA%`). In that mode the app never touches Windows autostart. Turn off "re-apply on connect" and clock sync in the copies so nothing is sent.
+- `scripts/shot.ps1 <out.png>` screenshots the running app; `scripts/nav.ps1 "<name>"` selects a page (Screen, Lighting, Per-key colors, Keys, Macros, Keyboard, App settings) or a keyboard ("AJAZZ AK980 V2", "AULA F108 Pro") via UI Automation; `scripts/invoke.ps1 <AutomationId or name>` presses a button, for example `key-115` selects a key on the Keys page. Don't synthesize mouse clicks: the window may be behind other windows.

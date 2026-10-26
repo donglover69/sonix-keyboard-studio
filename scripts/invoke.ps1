@@ -1,6 +1,6 @@
 # Presses a button in the running app via UI Automation, by AutomationId or name: invoke.ps1 "key-115" | "Apply to keyboard"
 # Works even when the window is behind other windows (no mouse involved).
-param([string]$Target, [string]$Process = "AK980Studio")
+param([string]$Target, [string]$Process = "KeyboardStudio")
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 $p = Get-Process $Process | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
 $root = [System.Windows.Automation.AutomationElement]::FromHandle($p.MainWindowHandle)

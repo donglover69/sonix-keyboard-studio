@@ -13,7 +13,7 @@ public static class W {
 }
 "@
 [W]::SetProcessDPIAware() | Out-Null
-$p = Get-Process AK980Studio | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
+$p = Get-Process KeyboardStudio | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
 $h = $p.MainWindowHandle
 $r = New-Object W+RECT
 [W]::GetWindowRect($h, [ref]$r) | Out-Null

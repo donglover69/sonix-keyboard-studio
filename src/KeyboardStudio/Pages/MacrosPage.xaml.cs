@@ -70,10 +70,13 @@ public partial class MacrosPage : UserControl
             StepList.ScrollIntoView(StepList.Items[selectStep]);
         }
         StepCount.Text = $"{m.Steps.Count} step(s)";
-        if (MacroList.SelectedIndex >= 0 && MacroList.SelectedIndex < MacroList.Items.Count)
+        int sel = MacroList.SelectedIndex;
+        if (sel >= 0 && sel < MacroList.Items.Count)
         {
             _loading = true;
-            MacroList.Items[MacroList.SelectedIndex] = $"{MacroList.SelectedIndex,2}  {m.Name}   ({m.Steps.Count})";
+            // Replacing the selected item unselects it, which would leave every button acting on no macro.
+            MacroList.Items[sel] = $"{sel,2}  {m.Name}   ({m.Steps.Count})";
+            MacroList.SelectedIndex = sel;
             _loading = false;
         }
     }

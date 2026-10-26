@@ -44,7 +44,7 @@ Data lives in `%LOCALAPPDATA%\KeyboardStudio`: `settings.json` (app), `devices\<
 
 ### Firmware-only controls
 
-- AK980 V2: `Fn+Z` logo light, `Fn+Del` screen on/off, `Fn+X` all lights. The red Fn key while charging and the Num Lock highlight are drawn by the firmware.
+- AK980 V2: `Fn+Z` logo light, `Fn+Del` screen on/off, `Fn+X` all lights, `Fn`+knob press toggles the knob between volume and screen menu. The red Fn key while charging and the Num Lock highlight are drawn by the firmware.
 - F108 Pro (manual): backlight `Fn+Tab` colors, `Fn+\` effects, `Fn+↑/↓` brightness, `Fn+←/→` speed; light bar `Fn+Left Shift/Ctrl/Alt/Z`; side light `Fn+Right Shift/Ctrl/Alt/?`; `Fn+knob` toggles the knob between screen menu and volume; `Fn+Esc` held 3 s resets to factory settings. The connection mode is picked in the screen menu with the knob.
 
 ## Protocol (wired)

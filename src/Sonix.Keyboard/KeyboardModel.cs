@@ -58,6 +58,7 @@ public sealed record KeyboardModel
             new("Fn + Z", "Logo light (next to the arrow keys) on / off"),
             new("Fn + Del", "Screen on / off"),
             new("Fn + X", "All lights on / off (per the AK980 V2 PRO manual)"),
+            new("Fn + knob press", "Knob: volume ↔ screen menu"),
             new("—", "Red Fn key while charging and the Num Lock key highlight are drawn by the firmware on top of every effect; there's no switch for them."),
         ],
     };
